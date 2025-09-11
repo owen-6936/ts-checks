@@ -28,6 +28,10 @@ jobs:
   ts-checks-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Checks
       - uses: owen-6936/ts-checks@v1.0.0
 ```
 
@@ -38,6 +42,9 @@ jobs:
   ts-checks-test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Run ts-checks
         id: checks
         uses: owen-6936/ts-checks@v1.0.0
