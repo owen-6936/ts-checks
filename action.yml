@@ -1,0 +1,47 @@
+name: TypeScript Checks
+description: 'Runs formatting, linting, and tests for TS/JS projects.'
+author: 'owen-6936'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Check for package.json
+      run: |
+        if [ ! -f package.json ]; then
+          echo "❌ No package.json found. This action requires a Node.js project."
+          exit 1
+        fi
+      shell: bash
+
+    - name: Check for all required sccipts
+      run: |
+        required_scripts=("format" "lint" "test")
+
+        for script in "${required_scripts[@]}"; do
+          if ! jq -e ".scripts[\"$script\"]" package.json > /dev/null; then
+            echo "❌ Missing script: \"$script\" in package.json"
+            echo "Please define \"$script\" in your package.json to use ts-checks."
+            exit 1
+          fi
+        done
+      shell: bash
+
+    - name: Install dependencies
+      run: npm ci
+      shell: bash
+
+    - name: Format
+      run: npm run format
+      shell: bash
+
+    - name: Lint
+      run: npm run lint
+      shell: bash
+
+    - name: Test
+      run: npm run test
+      shell: bash
