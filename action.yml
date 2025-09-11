@@ -2,12 +2,31 @@ name: TypeScript Checks
 description: 'Runs formatting, linting, and tests for TS/JS projects.'
 author: 'owen-6936'
 
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  node-version:
+    description: 'The Node.js version to run the checks'
+    required: false
+    default: '20'
+
+outputs:
+  checks-passed:
+    description: 'If all checks passed: format, lint, test'
+    value: ${{ steps.verify.outputs.passed }}
+
 runs:
   using: 'composite'
   steps:
-    - uses: actions/setup-node@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Node.js Setup
+      uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: ${{ inputs.node-version }}
 
     - name: Check for package.json
       run: |
@@ -17,7 +36,7 @@ runs:
         fi
       shell: bash
 
-    - name: Check for all required sccipts
+    - name: Check for required scripts
       run: |
         required_scripts=("format" "lint" "test")
 
@@ -44,4 +63,19 @@ runs:
 
     - name: Test
       run: npm run test
+      shell: bash
+
+    - name: Verify Checks Passed
+      id: verify
+      if: success()
+      run: |
+        echo "✅ All checks passed, hurray!"
+        echo "passed=true" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: On Checks Failure
+      if: failure()
+      run: |
+        echo "❌ An error occurred during the checks"
+        echo "passed=false" >> $GITHUB_OUTPUT
       shell: bash

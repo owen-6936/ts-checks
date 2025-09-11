@@ -1,0 +1,26 @@
+name: Test ts-checks Action
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ts-checks-test:
+    name: Run ts-checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run ts-checks
+        id: checks
+        uses: ./
+
+      - name: Report Result
+        if: always()
+        run: |
+          echo "✅ CI completed. Check logs for lint, format, and test results."
+          echo "checks-passed: ${{ steps.checks.outputs.checks-passed }}"
