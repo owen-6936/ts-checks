@@ -11,6 +11,9 @@ inputs:
     description: 'The Node.js version to run the checks'
     required: false
     default: '20'
+  github-token:
+    description: 'GitHub Token for creating issues'
+    required: true
   
   onfailure:
     description: 'What to do when a check fails.'
@@ -56,9 +59,9 @@ runs:
 
     - name: Create github issue for missing package.json
       if: ${{ steps.check-package-json.outputs.package-json-found == 'false' && inputs.onfailure != 'fix' }}
-      uses: owen-6936/create-github-issue
+      uses: owen-6936/create-github-issue@v1.0.0
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ inputs.GITHUB_TOKEN }}
         title: ${{ steps.check-package-json.outputs.issue_heading }}
         body: ${{ steps.check-package-json.outputs.issue_body }}
         labels: "setup,created-by:ci"
@@ -108,9 +111,9 @@ runs:
 
     - name: Create github issue for scripts
       if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure != 'fix' }}
-      uses: owen-6936/create-github-issue
+      uses: owen-6936/create-github-issue@v1.0.0
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ inputs.GITHUB_TOKEN }}
         title: ${{ steps.check-required-scripts.outputs.issue_heading }}
         body: ${{ steps.check-required-scripts.outputs.issue_body }}
         labels: "setup,created-by:ci"
