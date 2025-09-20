@@ -11,9 +11,14 @@ inputs:
     description: 'The Node.js version to run the checks'
     required: false
     default: '20'
+  
+  onfailure:
+    description: 'What to do when a check fails.'
+    required: false
+    default: 'fail'
 
 outputs:
-  checks-passed:
+  checks_passed:
     description: 'If all checks passed: format, lint, test'
     value: ${{ steps.verify.outputs.passed }}
 
@@ -26,28 +31,178 @@ runs:
         node-version: ${{ inputs.node-version }}
 
     - name: Check for package.json
+      id: check-package-json
       run: |
         if [ ! -f package.json ]; then
           echo "❌ No package.json found. This action requires a Node.js project."
-          exit 1
+          echo "package-json-found=false" >> $GITHUB_OUTPUT
+          {
+            echo "issue_heading=❌ No package.json found."
+            echo "issue_body<<EOF"
+            echo "The ts-checks action requires a 'package.json' file to run."
+            echo ""
+            echo "It appears no 'package.json' was found in the repository's root directory. Please ensure that you are running the action from the correct directory, or create a 'package.json' file to define your project's scripts and dependencies."
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          if [ "${{inputs.onfailure}}" == "fail" ]; then
+            echo "this step will fail, change the 'onfailure' input value for a different result"
+            exit 1
+          fi
+        else
+          echo "✅ package.json found."
+          echo "package-json-found=true" >> $GITHUB_OUTPUT
         fi
       shell: bash
 
+    - name: Create github issue for missing package.json
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'false' && inputs.onfailure != 'fix' }}
+      uses: owen-6936/create-github-issue
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title: ${{ steps.check-package-json.outputs.issue_heading }}
+        body: ${{ steps.check-package-json.outputs.issue_body }}
+        labels: "setup,created-by:ci"
+
+    - name: Generate Package.json
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'false' && inputs.onfailure == 'fix' }}
+      run: npm init -y
+      shell: bash
+
     - name: Check for required scripts
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'true' }}
+      id: check-required-scripts
       run: |
         required_scripts=("format" "lint" "test")
+        missing_scripts=()
 
         for script in "${required_scripts[@]}"; do
           if ! jq -e ".scripts[\"$script\"]" package.json > /dev/null; then
             echo "❌ Missing script: \"$script\" in package.json"
-            echo "Please define \"$script\" in your package.json to use ts-checks."
-            exit 1
+            missing_scripts+=("$script")
           fi
         done
+
+        if [ ${#missing_scripts[@]} -gt 0 ]; then
+          echo "❌ Found missing script(s) in package.json."
+          echo "scripts_missing=true" >> $GITHUB_OUTPUT
+
+          {
+            echo "issue_heading=❌ Missing scripts in your package.json"
+            echo "issue_body<<EOF"
+            echo "The following scripts are required by ts-checks but were not found:"
+            echo ""
+            for script in "${missing_scripts[@]}"; do
+              echo "* \`$script\`"
+            done
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          if [ "${{inputs.onfailure}}" == "fail" ]; then
+            exit 1
+          fi
+        else
+          echo "✅ All required scripts found in package.json."
+          echo "scripts_missing=false" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+
+    - name: Create github issue for scripts
+      if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure != 'fix' }}
+      uses: owen-6936/create-github-issue
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        title: ${{ steps.check-required-scripts.outputs.issue_heading }}
+        body: ${{ steps.check-required-scripts.outputs.issue_body }}
+        labels: "setup,created-by:ci"
+
+    - name: Install jq
+      if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' }}
+      run: sudo apt-get install -y jq
+      shell: bash
+
+    - name: Fix Missing Scripts
+      if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure == 'fix' }}
+      run: |
+        echo "🔍 Found missing scripts. Attempting to fix and configure..."
+        
+        # Fix Missing 'format' Script
+        echo "📝 Adding 'format' script to package.json..."
+        jq --arg key "format" \
+          --arg value "prettier --write ." \
+          '.scripts[$key] = $value' package.json > package.json.tmp && mv package.json.tmp package.json
+        
+        # Check if a .prettierrc file already exists, if not, create one
+        if [ ! -f .prettierrc ]; then
+          echo "📄 Creating .prettierrc file..."
+          cat <<'EOF' > .prettierrc
+          {
+            "singleQuote": true,
+            "trailingComma": "all",
+            "printWidth": 80,
+            "semi": true,
+            "tabWidth": 2
+          }
+          EOF
+        else
+          echo "⚠️ .prettierrc already exists. Skipping file creation."
+        fi
+
+        # Fix Missing 'lint' Script
+        echo "📝 Adding 'lint' script to package.json..."
+        jq --arg key "lint" \
+          --arg value "eslint . --fix" \
+          '.scripts[$key] = $value' package.json > package.json.tmp && mv package.json.tmp package.json
+
+        if [ ! -f eslint.config.js ]; then
+          echo "📄 Creating eslint.config.js file..."
+          cat <<'EOF' > eslint.config.js
+          import js from '@eslint/js'
+          import tsPlugin from '@typescript-eslint/eslint-plugin'
+          import tsParser from '@typescript-eslint/parser'
+        
+          export default [
+            js.configs.recommended,
+            {
+              files: ['**/*.ts', '**/*.tsx'],
+              languageOptions: {
+                parser: tsParser,
+                parserOptions: {
+                  project: './tsconfig.json',
+                },
+              },
+              plugins: {
+                '@typescript-eslint': tsPlugin,
+              },
+              rules: {
+                '@typescript-eslint/no-unused-vars': ['warn'],
+                '@typescript-eslint/no-explicit-any': 'off',
+              },
+            },
+          ]
+          EOF
+        else
+          echo "⚠️ eslint.config.js already exists. Skipping file creation."
+        fi
+
+        # Fix Missing 'test' Script
+        echo "📝 Adding 'test' script to package.json..."
+        jq --arg key "test" \
+          --arg value "echo 'Missing test script added by ts-checks, please fill me in' && exit 1" \
+          '.scripts[$key] = $value' package.json > package.json.tmp && mv package.json.tmp package.json
+        
+        echo "✅ All fixes complete."
       shell: bash
 
     - name: Install dependencies
-      run: npm ci
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'true' }}
+      run: |
+        if [ -f package-lock.json ]; then
+          echo "🔒 package-lock.json found. Using npm ci for a fast, clean install."
+          npm ci
+        else
+          echo "📦 No package-lock.json found. Using npm install to generate one."
+          npm install
+        fi
       shell: bash
 
     - name: Format
@@ -62,17 +217,15 @@ runs:
       run: npm run test
       shell: bash
 
-    - name: Verify Checks Passed
-      id: verify
-      if: success()
+    - name: Set Final Output
+      if: always()
+      id: set-final-output
       run: |
-        echo "✅ All checks passed, hurray!"
-        echo "passed=true" >> $GITHUB_OUTPUT
-      shell: bash
-
-    - name: On Checks Failure
-      if: failure()
-      run: |
-        echo "❌ An error occurred during the checks"
-        echo "passed=false" >> $GITHUB_OUTPUT
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ All checks passed."
+          echo "checks_passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Some checks failed."
+          echo "checks_passed=false" >> $GITHUB_OUTPUT
+        fi
       shell: bash
