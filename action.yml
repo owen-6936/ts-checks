@@ -208,16 +208,19 @@ runs:
       shell: bash
 
     - name: Format
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'true' && steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure != 'fix' }}
       id: format-check
       run: npm run format
       shell: bash
 
     - name: Lint
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'true' && steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure != 'fix' }}
       id: lint-check
       run: npm run lint
       shell: bash
 
     - name: Test
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'true' && steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure != 'fix' }}
       id: test-check
       run: npm run test
       shell: bash
