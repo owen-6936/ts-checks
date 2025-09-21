@@ -125,9 +125,21 @@ runs:
 
     - name: Ensure fix branch exists
       id: ensure-branch
+      env:
+        ISSUE_PKG: ${{ steps.create-issue-package-json.outputs.issue_number }}
+        ISSUE_SCRIPTS: ${{ steps.create-issue-scripts.outputs.issue_number }}
       run: |
-        ISSUE_ID="${{ steps.create-issue-package-json.outputs.issue_number != '' && steps.create-issue-package-json.outputs.issue_number || steps.create-issue-scripts.outputs.issue_number }}"
-        BRANCH_NAME="fix/${ISSUE_ID}"
+        ISSUE_ID="$ISSUE_PKG"
+        if [[ -z "$ISSUE_ID" ]]; then
+          ISSUE_ID="$ISSUE_SCRIPTS"
+        fi
+
+        if [[ -z "$ISSUE_ID" ]]; then
+          echo "❌ No issue ID found. Cannot create fix branch."
+          exit 1
+        fi
+
+        BRANCH_NAME="fix/$ISSUE_ID"
 
         echo "🔍 Checking for branch: $BRANCH_NAME"
         if git ls-remote --exit-code origin "refs/heads/$BRANCH_NAME"; then
