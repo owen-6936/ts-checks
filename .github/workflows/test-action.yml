@@ -17,6 +17,9 @@ jobs:
       - name: Run ts-checks
         id: checks
         uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          onfailure: report
 
       - name: Report Result
         if: always()
