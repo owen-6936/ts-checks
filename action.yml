@@ -33,6 +33,10 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
+    - name: Install jq
+      run: sudo apt-get install -y jq
+      shell: bash
+
     - name: Check for package.json
       id: check-package-json
       run: |
@@ -117,11 +121,6 @@ runs:
         title: ${{ steps.check-required-scripts.outputs.issue_heading }}
         body: ${{ steps.check-required-scripts.outputs.issue_body }}
         labels: 'setup,created-by:ci'
-
-    - name: Install jq
-      if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' }}
-      run: sudo apt-get install -y jq
-      shell: bash
 
     - name: Fix Missing Scripts
       if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure == 'fix' }}
@@ -209,22 +208,24 @@ runs:
       shell: bash
 
     - name: Format
+      id: format-check
       run: npm run format
       shell: bash
 
     - name: Lint
+      id: lint-check
       run: npm run lint
       shell: bash
 
     - name: Test
+      id: test-check
       run: npm run test
       shell: bash
 
     - name: Set Final Output
-      if: always()
       id: set-final-output
       run: |
-        if [ "${{ job.status }}" == "success" ]; then
+        if [[ "${{ steps.format-check.outcome }}" == "success" && "${{ steps.lint-check.outcome }}" == "success" && "${{ steps.test-check.outcome }}" == "success" ]]; then
           echo "✅ All checks passed."
           echo "checks_passed=true" >> $GITHUB_OUTPUT
         else
