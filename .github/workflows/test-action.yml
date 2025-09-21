@@ -23,7 +23,7 @@ jobs:
         uses: ./
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          onfailure: report
+          onfailure: fix
 
       - name: Report Result
         if: always()

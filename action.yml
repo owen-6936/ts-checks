@@ -14,6 +14,10 @@ inputs:
   github-token:
     description: 'GitHub Token for creating issues'
     required: true
+  base-branch:
+    description: 'Target branch for the pull request (e.g. main, master)'
+    required: false
+    default: ''
 
   onfailure:
     description: 'What to do when a check fails.'
@@ -63,17 +67,13 @@ runs:
 
     - name: Create github issue for missing package.json
       if: ${{ steps.check-package-json.outputs.package-json-found == 'false' && inputs.onfailure != 'fix' }}
+      id: create-issue-package-json
       uses: owen-6936/create-github-issue@v1.0.1
       with:
         github-token: ${{ inputs.github-token }}
         title: ${{ steps.check-package-json.outputs.issue_heading }}
         body: ${{ steps.check-package-json.outputs.issue_body }}
         labels: 'setup,created-by:ci'
-
-    - name: Generate Package.json
-      if: ${{ steps.check-package-json.outputs.package-json-found == 'false' && inputs.onfailure == 'fix' }}
-      run: npm init -y
-      shell: bash
 
     - name: Check for required scripts
       if: ${{ steps.check-package-json.outputs.package-json-found == 'true' }}
@@ -115,12 +115,37 @@ runs:
 
     - name: Create github issue for scripts
       if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure != 'fix' }}
+      id: create-issue-scripts
       uses: owen-6936/create-github-issue@v1.0.1
       with:
         github-token: ${{ inputs.github-token }}
         title: ${{ steps.check-required-scripts.outputs.issue_heading }}
         body: ${{ steps.check-required-scripts.outputs.issue_body }}
         labels: 'setup,created-by:ci'
+
+    - name: Ensure fix branch exists
+      id: ensure-branch
+      run: |
+        ISSUE_ID="${{ steps.create-issue-package-json.outputs.issue_number != '' && steps.create-issue-package-json.outputs.issue_number || steps.create-issue-scripts.outputs.issue_number }}"
+        BRANCH_NAME="fix/${ISSUE_ID}"
+
+        echo "🔍 Checking for branch: $BRANCH_NAME"
+        if git ls-remote --exit-code origin "refs/heads/$BRANCH_NAME"; then
+          echo "✅ Branch exists: $BRANCH_NAME"
+          git fetch origin "$BRANCH_NAME"
+          git checkout "$BRANCH_NAME"
+        else
+          echo "➕ Creating branch: $BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+        fi
+
+        echo "branch-name=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Generate Package.json
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'false' && inputs.onfailure == 'fix' }}
+      run: npm init -y
+      shell: bash
 
     - name: Fix Missing Scripts
       if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure == 'fix' }}
@@ -206,6 +231,68 @@ runs:
           npm install
         fi
       shell: bash
+
+    - name: Commit fix
+      id: commit-fix
+      env:
+        ISSUE_PKG: ${{ steps.create-issue-package-json.outputs.issue_number }}
+        ISSUE_SCRIPTS: ${{ steps.create-issue-scripts.outputs.issue_number }}
+      run: |
+        # Determine which issue was created
+        if [[ -n "$ISSUE_PKG" ]]; then
+          ISSUE_ID="$ISSUE_PKG"
+          COMMIT_HEADING="fix: add missing package.json"
+          COMMIT_BODY="This patch resolves missing package.json detection from CI. Linked to issue #$ISSUE_ID."
+        else
+          ISSUE_ID="$ISSUE_SCRIPTS"
+          COMMIT_HEADING="fix: patch missing scripts"
+          COMMIT_BODY="This patch resolves missing script entries detected by CI. Linked to issue #$ISSUE_ID."
+        fi
+
+        BRANCH_NAME="fix/$ISSUE_ID"
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        git checkout "$BRANCH_NAME"
+        git add .
+        git commit -m "$COMMIT_HEADING" -m "$COMMIT_BODY"
+        git push origin "$BRANCH_NAME"
+
+        echo "commit-heading=$COMMIT_HEADING" >> "$GITHUB_OUTPUT"
+        echo "commit-body=$COMMIT_BODY" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Set base branch
+      id: set-base-branch
+      env:
+        INPUT_BASE_BRANCH: ${{ inputs.base-branch }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: |
+        BASE_BRANCH="${INPUT_BASE_BRANCH:-$DEFAULT_BRANCH}"
+        echo "base-branch=$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Detect Existing PR
+      id: pr-check
+      uses: owen-6936/detect-pr@v1.0.0
+      with:
+        branch: ${{ steps.ensure-branch.outputs.branch-name }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create Pull Request
+      if: ${{ steps.pr-check.outputs.skip_pr_creation == 'false' }}
+      uses: owen-6936/create-pr@v1.1.0
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ steps.ensure-branch.outputs.branch-name }}
+        base-branch: ${{ steps.set-base-branch.outputs.base-branch }}
+        title: ${{ steps.commit-fix.outputs.commit-heading }}
+        body: ${{ steps.commit-fix.outputs.commit-body }}
+        labels: auto-fix,created-by:ci
+        comment-body: |
+          ✅ PR created by CI for issue resolution.
+          Please review and merge if checks pass.
 
     - name: Format
       if: ${{ steps.check-package-json.outputs.package-json-found == 'true' && steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure != 'fix' }}
