@@ -278,13 +278,13 @@ runs:
       uses: owen-6936/detect-pr@v1.0.0
       with:
         branch: ${{ steps.ensure-branch.outputs.branch-name }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ inputs.github-token }}
 
     - name: Create Pull Request
       if: ${{ steps.pr-check.outputs.skip_pr_creation == 'false' }}
       uses: owen-6936/create-pr@v1.1.0
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ inputs.github-token }}
         branch: ${{ steps.ensure-branch.outputs.branch-name }}
         base-branch: ${{ steps.set-base-branch.outputs.base-branch }}
         title: ${{ steps.commit-fix.outputs.commit-heading }}
