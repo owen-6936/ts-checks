@@ -250,15 +250,23 @@ runs:
         ISSUE_PKG: ${{ steps.create-issue-package-json.outputs.issue-number }}
         ISSUE_SCRIPTS: ${{ steps.create-issue-scripts.outputs.issue-number }}
       run: |
+        # Declare local variables
+        issue_reason=""
+        action_taken=""
+
         # Determine which issue was created
         if [[ -n "$ISSUE_PKG" ]]; then
           ISSUE_ID="$ISSUE_PKG"
           COMMIT_HEADING="fix: add missing package.json"
           COMMIT_BODY="This patch resolves missing package.json detection from CI. Linked to issue #$ISSUE_ID."
+          echo "issue_reason=No package.json found."
+          echo "action_taken=Created a package.json file"
         else
           ISSUE_ID="$ISSUE_SCRIPTS"
           COMMIT_HEADING="fix: patch missing scripts"
           COMMIT_BODY="This patch resolves missing script entries detected by CI. Linked to issue #$ISSUE_ID."
+          echo "issue_reason=Missing scripts in package.json."
+          echo "action_taken=Added the missing scripts to the package.json file"
         fi
 
         if [[ -n "$ISSUE_ID" ]]; then
@@ -267,6 +275,16 @@ runs:
           echo "❌ The issue id is empty"
           exit 1
         fi
+
+        echo "## 🤖 Automation Log" > ci-log.md
+        echo "" >> ci-log.md
+        echo "This file documents the automated actions performed by the ts-checks workflow." >> ci-log.md
+        echo "" >> ci-log.md
+        echo "### Fix/Issue Details" >> ci-log.md
+        echo "- **Issue ID:** #$ISSUE_ID" >> ci-log.md
+        echo "- **Reason:** $issue_reason" >> ci-log.md
+        echo "- **Action Taken:** $action_taken" >> ci-log.md
+        echo "- **Commit ID:** ${{ github.sha }}" >> ci-log.md
 
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
