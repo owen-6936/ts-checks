@@ -126,8 +126,8 @@ runs:
     - name: Ensure fix branch exists
       id: ensure-branch
       env:
-        ISSUE_PKG: ${{ steps.create-issue-package-json.outputs.issue_number }}
-        ISSUE_SCRIPTS: ${{ steps.create-issue-scripts.outputs.issue_number }}
+        ISSUE_PKG: ${{ steps.create-issue-package-json.outputs.issue-number}}
+        ISSUE_SCRIPTS: ${{ steps.create-issue-scripts.outputs.issue-number}}
       run: |
         ISSUE_ID="$ISSUE_PKG"
         if [[ -z "$ISSUE_ID" ]]; then
@@ -261,7 +261,12 @@ runs:
           COMMIT_BODY="This patch resolves missing script entries detected by CI. Linked to issue #$ISSUE_ID."
         fi
 
-        BRANCH_NAME="fix/$ISSUE_ID"
+        if [[ -n "$ISSUE_ID" ]]
+          BRANCH_NAME="fix/$ISSUE_ID"
+        else
+          echo "❌ The issue id is empty"
+          exit 1
+        fi
 
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
