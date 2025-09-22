@@ -1,0 +1,12 @@
+{
+  "name": "ts-checks",
+  "version": "1.0.0",
+  "description": "**Modular TypeScript hygiene for CI pipelines.**   Runs formatting, linting, and tests with clarity, edge case awareness, and zero boilerplate.",
+  "main": "eslint.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
