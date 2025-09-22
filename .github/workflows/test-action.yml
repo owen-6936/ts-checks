@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  issues: write
+  contents: write
+
 jobs:
   ts-checks-test:
     name: Run ts-checks
@@ -17,6 +21,9 @@ jobs:
       - name: Run ts-checks
         id: checks
         uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          onfailure: fix
 
       - name: Report Result
         if: always()
