@@ -247,8 +247,8 @@ runs:
     - name: Commit fix
       id: commit-fix
       env:
-        ISSUE_PKG: ${{ steps.create-issue-package-json.outputs.issue_number }}
-        ISSUE_SCRIPTS: ${{ steps.create-issue-scripts.outputs.issue_number }}
+        ISSUE_PKG: ${{ steps.create-issue-package-json.outputs.issue-number }}
+        ISSUE_SCRIPTS: ${{ steps.create-issue-scripts.outputs.issue-number }}
       run: |
         # Determine which issue was created
         if [[ -n "$ISSUE_PKG" ]]; then
