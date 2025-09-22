@@ -68,7 +68,7 @@ runs:
     - name: Create github issue for missing package.json
       if: ${{ steps.check-package-json.outputs.package-json-found == 'false' }}
       id: create-issue-package-json
-      uses: owen-6936/create-github-issue@v1.1.0
+      uses: owen-6936/create-github-issue@v1.2.0
       with:
         github-token: ${{ inputs.github-token }}
         title: ${{ steps.check-package-json.outputs.issue_heading }}
@@ -116,7 +116,7 @@ runs:
     - name: Create github issue for scripts
       if: ${{ steps.check-package-json.outputs.package-json-found == 'true' && steps.check-required-scripts.outputs.scripts_missing == 'true' }}
       id: create-issue-scripts
-      uses: owen-6936/create-github-issue@v1.1.0
+      uses: owen-6936/create-github-issue@v1.2.0
       with:
         github-token: ${{ inputs.github-token }}
         title: ${{ steps.check-required-scripts.outputs.issue_heading }}
