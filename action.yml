@@ -261,7 +261,7 @@ runs:
           COMMIT_BODY="This patch resolves missing script entries detected by CI. Linked to issue #$ISSUE_ID."
         fi
 
-        if [[ -n "$ISSUE_ID" ]]
+        if [[ -n "$ISSUE_ID" ]]; then
           BRANCH_NAME="fix/$ISSUE_ID"
         else
           echo "❌ The issue id is empty"
