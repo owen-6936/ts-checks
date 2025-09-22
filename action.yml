@@ -156,7 +156,7 @@ runs:
 
     - name: Generate Package.json
       id: add-package-json
-      if: ${{ steps.check-package-json.outputs.package_json_exists == 'false' && inputs.onfailure == 'fix' }}
+      if: ${{ steps.check-package-json.outputs.package-json-found == 'false' && inputs.onfailure == 'fix' }}
       run: |
         npm init -y
         echo "add_scripts=true" >> $GITHUB_OUTPUT
