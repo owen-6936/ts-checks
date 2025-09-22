@@ -155,12 +155,15 @@ runs:
       shell: bash
 
     - name: Generate Package.json
-      if: ${{ steps.check-package-json.outputs.package-json-found == 'false' && inputs.onfailure == 'fix' }}
-      run: npm init -y
+      id: add-package-json
+      if: ${{ steps.check-package-json.outputs.package_json_exists == 'false' && inputs.onfailure == 'fix' }}
+      run: |
+        npm init -y
+        echo "add_scripts=true" >> $GITHUB_OUTPUT
       shell: bash
 
     - name: Fix Missing Scripts
-      if: ${{ steps.check-required-scripts.outputs.scripts_missing == 'true' && inputs.onfailure == 'fix' }}
+      if: ${{ (steps.check-required-scripts.outputs.scripts_missing == 'true' || steps.add-package-json.outputs.add_scripts = 'true') && inputs.onfailure == 'fix' }}
       run: |
         echo "🔍 Found missing scripts. Attempting to fix and configure..."
 
